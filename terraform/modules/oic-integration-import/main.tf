@@ -42,7 +42,7 @@ variable "oauth_credentials" {
 variable "jwt_generator_script" {
   description = "Path to JWT generator script"
   type        = string
-  default     = "${path.root}/../scripts/generate-jwt.sh"
+  default     = "../scripts/generate-jwt.sh"
 }
 
 variable "oauth_scope" {
@@ -177,7 +177,7 @@ resource "null_resource" "import_integration" {
         -H "Authorization: Bearer $TOKEN" \
         -H "Content-Type: application/octet-stream" \
         --data-binary "@$IAR_FILE" \
-        -w "\n%{http_code}")
+        -w "\n%%{http_code}")
       
       HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
       BODY=$(echo "$RESPONSE" | head -n -1)
@@ -291,7 +291,7 @@ resource "null_resource" "test_connections" {
       
       RESPONSE=$(curl -X POST "${var.oic_url}/ic/api/integration/v1/connections/${each.key}/test" \
         -H "Authorization: Bearer $TOKEN" \
-        -w "\n%{http_code}")
+        -w "\n%%{http_code}")
       
       HTTP_CODE=$(echo "$RESPONSE" | tail -n 1)
       

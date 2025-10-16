@@ -42,7 +42,7 @@ variable "oauth_credentials" {
 variable "jwt_generator_script" {
   description = "Path to JWT generator script"
   type        = string
-  default     = "${path.root}/../scripts/generate-jwt.sh"
+  default     = "../scripts/generate-jwt.sh"
 }
 
 variable "oauth_scope" {
