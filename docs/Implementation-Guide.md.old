@@ -133,12 +133,10 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 ### Step-by-Step Setup
 
-#### 1. Generate Certificates (Oracle's Official Method)
-
-Use Java's `keytool` as documented by Oracle:
+#### 1. Generate Certificates
 
 ```bash
-# Create certificate directories for each environment
+# Create certificate directory
 mkdir -p ~/.oic-certs/dev
 mkdir -p ~/.oic-certs/test
 mkdir -p ~/.oic-certs/prod
@@ -146,71 +144,32 @@ mkdir -p ~/.oic-certs/prod
 # For each environment (replace 'dev' with 'test', 'prod'):
 ENV=dev
 
-# Step 1: Generate the self-signed key pair
-keytool -genkey -keyalg RSA \
-  -alias oic-jwt-$ENV \
-  -keystore ~/.oic-certs/$ENV/keystore.jks \
-  -storepass changeit \
-  -validity 365 \
-  -keysize 2048
+# Generate private key (2048-bit RSA)
+openssl genrsa -out ~/.oic-certs/$ENV/private-key.pem 2048
 
-# Follow the interactive prompts:
-# What is your first and last name? [Your name or: OIC JWT Auth DEV]
-# What is the name of your organizational unit? [Your team]
-# What is the name of your organization? [Your company]
-# What is the name of your City or Locality? [Your city]
-# What is the name of your State or Province? [Your state]
-# What is the two-letter country code? [US, GB, etc]
-# Is CN=..., OU=..., correct? [yes]
+# Generate certificate signing request
+openssl req -new \
+  -key ~/.oic-certs/$ENV/private-key.pem \
+  -out ~/.oic-certs/$ENV/cert.csr \
+  -subj "/CN=OIC JWT Auth $ENV"
 
-# Step 2: Export the public key certificate
-keytool -exportcert \
-  -alias oic-jwt-$ENV \
-  -file ~/.oic-certs/$ENV/certificate.cer \
-  -keystore ~/.oic-certs/$ENV/keystore.jks \
-  -storepass changeit
+# Generate self-signed certificate (valid 365 days)
+openssl x509 -req -days 365 \
+  -in ~/.oic-certs/$ENV/cert.csr \
+  -signkey ~/.oic-certs/$ENV/private-key.pem \
+  -out ~/.oic-certs/$ENV/certificate.pem
 
-# Success message: Certificate stored in file <certificate.cer>
+# Create PKCS12 bundle (for IDCS upload)
+openssl pkcs12 -export \
+  -in ~/.oic-certs/$ENV/certificate.pem \
+  -inkey ~/.oic-certs/$ENV/private-key.pem \
+  -out ~/.oic-certs/$ENV/certificate.p12 \
+  -name "OIC JWT $ENV" \
+  -passout pass:changeit
 
-# Step 3: Convert the keystore to PKCS12 format
-keytool -importkeystore \
-  -srckeystore ~/.oic-certs/$ENV/keystore.jks \
-  -srcstorepass changeit \
-  -srckeypass changeit \
-  -srcalias oic-jwt-$ENV \
-  -destalias oic-jwt-$ENV \
-  -destkeystore ~/.oic-certs/$ENV/certificate.p12 \
-  -deststoretype PKCS12 \
-  -deststorepass changeit \
-  -destkeypass changeit
-
-# Success message: Importing keystore ... to certificate.p12...
-
-# Step 4: Export the private key from PKCS12 keystore
-openssl pkcs12 \
-  -in ~/.oic-certs/$ENV/certificate.p12 \
-  -nodes \
-  -nocerts \
-  -out ~/.oic-certs/$ENV/private-key.pem \
-  -passin pass:changeit
-
-# Success message: MAC verified OK
-
-# Step 5: Set secure permissions
+# Set secure permissions
 chmod 600 ~/.oic-certs/$ENV/*
 ```
-
-**Files Created:**
-- `keystore.jks` - Java keystore (original, keep secure)
-- `certificate.cer` - Public certificate for IDCS (upload this)
-- `certificate.p12` - PKCS12 bundle (upload this if needed)
-- `private-key.pem` - Private key for JWT signing (**keep secure!**)
-
-**Important Notes:**
-- Use the same password (`changeit` or your chosen password) throughout
-- The `.cer` file is what you upload to IDCS
-- The `private-key.pem` is used by the JWT generator script
-- Keep keystores and private keys secure - never commit to Git
 
 #### 2. Create IDCS Confidential Application
 
@@ -271,63 +230,22 @@ For each environment (DEV, TEST, PROD):
 
 #### 3. Verify Setup
 
-Test the complete JWT authentication flow:
-
 ```bash
-# Step 1: Set environment variables
-export IDCS_URL="https://idcs-xxxxx.identity.oraclecloud.com"
-export CLIENT_ID="your-client-id"
-export CLIENT_SECRET="your-client-secret"
-export USERNAME="your.email@example.com"
-export PRIVATE_KEY_PATH="~/.oic-certs/dev/private-key.pem"
+# Test JWT generation
+./scripts/generate-jwt.sh \
+  "your.email@example.com" \
+  "your-client-id" \
+  "~/.oic-certs/dev/private-key.pem"
 
-# Step 2: Generate JWT token
-JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH")
-
-echo "JWT Token generated: ${JWT_TOKEN:0:50}..."
-
-# Step 3: Exchange JWT for Access Token (Oracle's documented method)
-BASIC_AUTH=$(echo -n "${CLIENT_ID}:${CLIENT_SECRET}" | base64)
-
-ACCESS_TOKEN=$(curl -s \
-  -H "Authorization: Basic $BASIC_AUTH" \
-  -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" \
-  --request POST "${IDCS_URL}/oauth2/v1/token" \
-  -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${JWT_TOKEN}&scope=urn:opc:resource:consumer::all" \
-  | jq -r '.access_token')
-
-if [ "$ACCESS_TOKEN" != "null" ] && [ -n "$ACCESS_TOKEN" ]; then
-  echo "✓ Access token obtained successfully"
-  echo "Token preview: ${ACCESS_TOKEN:0:50}..."
-else
-  echo "✗ Failed to get access token"
-  # Show error details
-  curl -i \
-    -H "Authorization: Basic $BASIC_AUTH" \
-    -H "Content-Type: application/x-www-form-urlencoded;charset=UTF-8" \
-    --request POST "${IDCS_URL}/oauth2/v1/token" \
-    -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${JWT_TOKEN}&scope=urn:opc:resource:consumer::all"
-fi
-
-# Step 4: Test OIC API access
-OIC_URL="https://your-oic.integration.ocp.oraclecloud.com"
-
-curl -s \
-  -H "Authorization: Bearer $ACCESS_TOKEN" \
-  "${OIC_URL}/ic/api/integration/v1/integrations?limit=1" | jq '.'
-```
-
-**Expected Results:**
-- JWT token: Long string starting with `eyJ...`
-- Access token: Long string from IDCS
-- OIC API response: JSON with integration data
-
-**Use the automated test script:**
-```bash
+# Test complete auth flow
 ./scripts/test-jwt-auth.sh dev
 ```
 
-This script performs all verification steps automatically.
+Expected output:
+```
+✓ All Tests Passed!
+Your JWT authentication is configured correctly for dev environment.
+```
 
 ---
 

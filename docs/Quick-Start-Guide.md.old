@@ -66,76 +66,38 @@ oci os bucket create \
 
 OIC3 uses JWT User Assertion for secure authentication with certificates.
 
-**📘 Note:** These steps follow Oracle's official documentation:  
-[Authenticate Requests for Invoking Oracle Integration Flows - JWT User Assertion](https://docs.oracle.com/en/cloud/paas/application-integration/rest-adapter/authenticate-requests-invoking-oic-integration-flows.html#GUID-6D75DD1E-1811-4E73-BB0D-10DE56CB83EE__BBBB)
-
-### Generate Certificates (Using Oracle's Method)
-
-Follow Oracle's official method using Java's `keytool`:
+### Generate Certificates
 
 ```bash
 # Create certificate directory
 mkdir -p ~/.oic-certs
 
-# 1. Generate the self-signed key pair
-keytool -genkey -keyalg RSA \
-  -alias oic-jwt \
-  -keystore ~/.oic-certs/keystore.jks \
-  -storepass changeit \
-  -validity 365 \
-  -keysize 2048
+# Generate private key
+openssl genrsa -out ~/.oic-certs/oic-jwt-key.pem 2048
 
-# Follow prompts:
-# - What is your first and last name? [Enter your name or: OIC JWT Auth]
-# - What is the name of your organizational unit? [Your team]
-# - What is the name of your organization? [Your company]
-# - What is the name of your City or Locality? [Your city]
-# - What is the name of your State or Province? [Your state]
-# - What is the two-letter country code? [US/GB/etc]
-# - Is CN=..., correct? [yes]
+# Generate certificate signing request
+openssl req -new \
+  -key ~/.oic-certs/oic-jwt-key.pem \
+  -out ~/.oic-certs/oic-jwt.csr \
+  -subj "/CN=OIC JWT Auth"
 
-# 2. Export the public key certificate
-keytool -exportcert \
-  -alias oic-jwt \
-  -file ~/.oic-certs/certificate.cer \
-  -keystore ~/.oic-certs/keystore.jks \
-  -storepass changeit
+# Generate self-signed certificate (valid for 365 days)
+openssl x509 -req \
+  -days 365 \
+  -in ~/.oic-certs/oic-jwt.csr \
+  -signkey ~/.oic-certs/oic-jwt-key.pem \
+  -out ~/.oic-certs/oic-jwt-cert.pem
 
-# Should show: Certificate stored in file <certificate.cer>
+# Create PKCS12 file for upload
+openssl pkcs12 -export \
+  -in ~/.oic-certs/oic-jwt-cert.pem \
+  -inkey ~/.oic-certs/oic-jwt-key.pem \
+  -out ~/.oic-certs/oic-jwt.p12 \
+  -name "OIC JWT Certificate"
 
-# 3. Convert the keystore to P12 format
-keytool -importkeystore \
-  -srckeystore ~/.oic-certs/keystore.jks \
-  -srcstorepass changeit \
-  -srckeypass changeit \
-  -srcalias oic-jwt \
-  -destalias oic-jwt \
-  -destkeystore ~/.oic-certs/certificate.p12 \
-  -deststoretype PKCS12 \
-  -deststorepass changeit \
-  -destkeypass changeit
-
-# Should show: Importing keystore ... to certificate.p12...
-
-# 4. Export the private key from P12 keystore
-openssl pkcs12 \
-  -in ~/.oic-certs/certificate.p12 \
-  -nodes \
-  -nocerts \
-  -out ~/.oic-certs/private-key.pem \
-  -passin pass:changeit
-
-# Should show: MAC verified OK
-
-# 5. Set permissions
+# Set permissions
 chmod 600 ~/.oic-certs/*
 ```
-
-**Important Files Created:**
-- `keystore.jks` - Java keystore (keep secure)
-- `certificate.cer` - Public certificate (upload to IDCS)
-- `certificate.p12` - PKCS12 bundle (upload to IDCS)
-- `private-key.pem` - Private key for JWT signing (keep secure!)
 
 ### Create Confidential Application in IDCS
 
@@ -217,31 +179,22 @@ export IDCS_URL="https://idcs-xxxxx.identity.oraclecloud.com"
 export CLIENT_ID="your-client-id"
 export CLIENT_SECRET="your-client-secret"
 export USERNAME="your.email@example.com"
-export PRIVATE_KEY_PATH="~/.oic-certs/private-key.pem"
+export PRIVATE_KEY_PATH="~/.oic-certs/oic-jwt-key.pem"
 
 # Test JWT token generation
 ./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH"
 
-# If successful, you'll see a long JWT token string starting with eyJ...
+# If successful, you'll see a long JWT token
 ```
 
 ### Repeat for TEST and PROD
 
-Create separate applications and certificates for each environment:
+Create separate applications for each environment:
+- `oic-terraform-dev`
+- `oic-terraform-test`
+- `oic-terraform-prod`
 
-**For DEV:**
-- Application: `oic-terraform-dev`
-- Certificates in: `~/.oic-certs/dev/`
-
-**For TEST:**
-- Application: `oic-terraform-test`  
-- Certificates in: `~/.oic-certs/test/`
-
-**For PROD:**
-- Application: `oic-terraform-prod`
-- Certificates in: `~/.oic-certs/prod/`
-
-For each environment, repeat all steps above with environment-specific directories.
+Each with their own certificates and client credentials.
 
 ### Store Credentials in Environment
 
