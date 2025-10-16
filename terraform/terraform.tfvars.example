@@ -1,0 +1,187 @@
+#################################################################
+# OIC3 Terraform Migration - Configuration
+#
+# Copy this to terraform.tfvars and customize for your environment
+#################################################################
+
+# Target environment (will be overridden by Makefile)
+environment = "dev"
+
+# OIC Instance Configurations
+oic_instances = {
+  dev = {
+    url           = "https://your-dev-instance.integration.us-phoenix-1.ocp.oraclecloud.com"
+    instance_name = "YOURDEVINSTANCE"
+    idcs_url      = "https://idcs-xxxxxxxxxxxxx.identity.oraclecloud.com"
+  }
+  test = {
+    url           = "https://your-test-instance.integration.us-phoenix-1.ocp.oraclecloud.com"
+    instance_name = "YOURTESTINSTANCE"
+    idcs_url      = "https://idcs-xxxxxxxxxxxxx.identity.oraclecloud.com"
+  }
+  prod = {
+    url           = "https://your-prod-instance.integration.us-ashburn-1.ocp.oraclecloud.com"
+    instance_name = "YOURPRODINSTANCE"
+    idcs_url      = "https://idcs-xxxxxxxxxxxxx.identity.oraclecloud.com"
+  }
+}
+
+# OAuth Credentials (JWT User Assertion)
+# These will be loaded from environment variables by the Makefile
+oauth_credentials = {
+  dev = {
+    client_id        = ""  # From OAUTH_CLIENT_ID_DEV
+    client_secret    = ""  # From OAUTH_CLIENT_SECRET_DEV
+    username         = ""  # From OAUTH_USERNAME_DEV
+    private_key_path = ""  # From OAUTH_PRIVATE_KEY_DEV
+  }
+  test = {
+    client_id        = ""  # From OAUTH_CLIENT_ID_TEST
+    client_secret    = ""  # From OAUTH_CLIENT_SECRET_TEST
+    username         = ""  # From OAUTH_USERNAME_TEST
+    private_key_path = ""  # From OAUTH_PRIVATE_KEY_TEST
+  }
+  prod = {
+    client_id        = ""  # From OAUTH_CLIENT_ID_PROD
+    client_secret    = ""  # From OAUTH_CLIENT_SECRET_PROD
+    username         = ""  # From OAUTH_USERNAME_PROD
+    private_key_path = ""  # From OAUTH_PRIVATE_KEY_PROD
+  }
+}
+
+# Object Storage Configuration
+bucket_config = {
+  name           = "oic-migration-artifacts"
+  namespace      = "your-tenancy-namespace"
+  compartment_id = "ocid1.compartment.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+}
+
+# Integrations to Migrate
+integrations_to_migrate = [
+  {
+    id      = "HELLO_WORLD|01.00.0000"
+    code    = "HELLO_WORLD"
+    version = "01.00.0000"
+    
+    # Connections used by this integration
+    connections = {
+      
+      # REST Connection Example
+      rest_conn = {
+        id = "REST_CONNECTION"
+        
+        # TEST environment properties
+        test_properties = {
+          "url" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "connectionUrl"
+            property_type  = "URL"
+            property_value = "https://test-api.example.com"
+          }
+          "timeout" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "readTimeout"
+            property_type  = "INTEGER"
+            property_value = "30"
+          }
+        }
+        
+        # PROD environment properties
+        prod_properties = {
+          "url" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "connectionUrl"
+            property_type  = "URL"
+            property_value = "https://api.example.com"
+          }
+          "timeout" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "readTimeout"
+            property_type  = "INTEGER"
+            property_value = "60"
+          }
+        }
+      }
+      
+      # FTP Connection Example
+      ftp_conn = {
+        id = "FTP_CONNECTION"
+        
+        test_properties = {
+          "host" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "host"
+            property_type  = "STRING"
+            property_value = "test-ftp.example.com"
+          }
+          "port" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "port"
+            property_type  = "INTEGER"
+            property_value = "21"
+          }
+          "directory" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "inputDirectory"
+            property_type  = "STRING"
+            property_value = "/test/inbound"
+          }
+        }
+        
+        prod_properties = {
+          "host" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "host"
+            property_type  = "STRING"
+            property_value = "ftp.example.com"
+          }
+          "port" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "port"
+            property_type  = "INTEGER"
+            property_value = "21"
+          }
+          "directory" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "inputDirectory"
+            property_type  = "STRING"
+            property_value = "/prod/inbound"
+          }
+        }
+      }
+    }
+  },
+  
+  # Add more integrations here
+  # {
+  #   id      = "ORDER_PROCESSING|02.00.0000"
+  #   code    = "ORDER_PROCESSING"
+  #   version = "02.00.0000"
+  #   
+  #   connections = {
+  #     ...
+  #   }
+  # }
+]
+
+#################################################################
+# Common Property Types Reference
+#################################################################
+
+# STRING       - Text values
+# INTEGER      - Numeric values
+# URL          - URLs
+# BOOLEAN      - true/false
+# EMAIL        - Email addresses
+# PASSWORD     - Sensitive values (will be masked)
+# FILE         - File paths
+# DATETIME     - Date/time values
+
+#################################################################
+# Common Property Groups
+#################################################################
+
+# CONNECTION_PROPS      - General connection properties
+# ADAPTER_PROPS         - Adapter-specific properties
+# SECURITY_PROPS        - Security/authentication properties
+# AGENT_GROUP_PROPS     - Agent group properties

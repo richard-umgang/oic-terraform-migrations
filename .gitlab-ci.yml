@@ -1,0 +1,326 @@
+#################################################################
+# OIC3 Terraform Migration - GitLab CI/CD Pipeline
+#
+# Automated deployment pipeline with JWT authentication
+#################################################################
+
+variables:
+  TF_VERSION: "1.6.0"
+  TF_ROOT: ${CI_PROJECT_DIR}/terraform
+  
+  # JWT Authentication (required for OIC3)
+  OAUTH_CLIENT_ID_DEV: "Protected"      # JWT client ID
+  OAUTH_CLIENT_SECRET_DEV: "Protected"  # JWT client secret
+  OAUTH_USERNAME_DEV: "Protected"       # IDCS username for JWT
+  OAUTH_PRIVATE_KEY_DEV: "File"         # Private key for JWT signing
+  
+  OAUTH_CLIENT_ID_TEST: "Protected"
+  OAUTH_CLIENT_SECRET_TEST: "Protected"
+  OAUTH_USERNAME_TEST: "Protected"
+  OAUTH_PRIVATE_KEY_TEST: "File"
+  
+  OAUTH_CLIENT_ID_PROD: "Protected"
+  OAUTH_CLIENT_SECRET_PROD: "Protected"
+  OAUTH_USERNAME_PROD: "Protected"
+  OAUTH_PRIVATE_KEY_PROD: "File"
+
+stages:
+  - validate
+  - export
+  - import-test
+  - test
+  - import-prod
+  - verify
+
+#################################################################
+# Validate Stage
+#################################################################
+
+validate:terraform:
+  stage: validate
+  image:
+    name: hashicorp/terraform:${TF_VERSION}
+    entrypoint: [""]
+  script:
+    - cd ${TF_ROOT}
+    - terraform init -backend=false
+    - terraform validate
+    - terraform fmt -check
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+validate:scripts:
+  stage: validate
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update && apt-get install -y shellcheck
+  script:
+    - shellcheck scripts/*.sh
+  allow_failure: true
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+#################################################################
+# Export from DEV
+#################################################################
+
+export:dev:
+  stage: export
+  image:
+    name: hashicorp/terraform:${TF_VERSION}
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache curl jq python3 bash
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - echo "Exporting integrations from DEV..."
+    - |
+      terraform apply \
+        -var="environment=dev" \
+        -var="oauth_credentials={dev={client_id=\"${OAUTH_CLIENT_ID_DEV}\",client_secret=\"${OAUTH_CLIENT_SECRET_DEV}\",username=\"${OAUTH_USERNAME_DEV}\",private_key_path=\"${OAUTH_PRIVATE_KEY_DEV}\"}}" \
+        -auto-approve
+    - terraform output -json > ${CI_PROJECT_DIR}/dev-outputs.json
+  artifacts:
+    paths:
+      - dev-outputs.json
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+    - when: manual
+
+#################################################################
+# Import to TEST
+#################################################################
+
+import:test:
+  stage: import-test
+  image:
+    name: hashicorp/terraform:${TF_VERSION}
+    entrypoint: [""]
+  dependencies:
+    - export:dev
+  before_script:
+    - apk add --no-cache curl jq python3 bash
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - echo "Importing integrations to TEST..."
+    - |
+      terraform apply \
+        -var="environment=test" \
+        -var="oauth_credentials={test={client_id=\"${OAUTH_CLIENT_ID_TEST}\",client_secret=\"${OAUTH_CLIENT_SECRET_TEST}\",username=\"${OAUTH_USERNAME_TEST}\",private_key_path=\"${OAUTH_PRIVATE_KEY_TEST}\"}}" \
+        -auto-approve
+    - terraform output -json > ${CI_PROJECT_DIR}/test-outputs.json
+  artifacts:
+    paths:
+      - test-outputs.json
+    expire_in: 1 week
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+#################################################################
+# Test in TEST Environment
+#################################################################
+
+test:integrations:
+  stage: test
+  image: ubuntu:22.04
+  dependencies:
+    - import:test
+  before_script:
+    - apt-get update && apt-get install -y curl jq python3
+  script:
+    - echo "Running integration tests in TEST..."
+    - chmod +x scripts/test-integrations.sh
+    - ./scripts/test-integrations.sh test
+  artifacts:
+    paths:
+      - test_report_test.html
+    expire_in: 1 month
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+test:connections:
+  stage: test
+  image: ubuntu:22.04
+  dependencies:
+    - import:test
+  before_script:
+    - apt-get update && apt-get install -y curl jq python3
+  script:
+    - echo "Testing connections in TEST..."
+    - chmod +x scripts/test-jwt-auth.sh
+    - ./scripts/test-jwt-auth.sh test
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "develop"'
+
+#################################################################
+# Import to PROD (Manual with Approval)
+#################################################################
+
+import:prod:
+  stage: import-prod
+  image:
+    name: hashicorp/terraform:${TF_VERSION}
+    entrypoint: [""]
+  dependencies:
+    - export:dev
+    - test:integrations
+  before_script:
+    - apk add --no-cache curl jq python3 bash
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - echo "⚠️ Importing integrations to PRODUCTION ⚠️"
+    - |
+      terraform apply \
+        -var="environment=prod" \
+        -var="oauth_credentials={prod={client_id=\"${OAUTH_CLIENT_ID_PROD}\",client_secret=\"${OAUTH_CLIENT_SECRET_PROD}\",username=\"${OAUTH_USERNAME_PROD}\",private_key_path=\"${OAUTH_PRIVATE_KEY_PROD}\"}}" \
+        -auto-approve
+    - terraform output -json > ${CI_PROJECT_DIR}/prod-outputs.json
+  artifacts:
+    paths:
+      - prod-outputs.json
+    expire_in: 1 month
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  environment:
+    name: production
+    action: start
+
+#################################################################
+# Verify PROD Deployment
+#################################################################
+
+verify:prod:
+  stage: verify
+  image: ubuntu:22.04
+  dependencies:
+    - import:prod
+  before_script:
+    - apt-get update && apt-get install -y curl jq python3
+  script:
+    - echo "Running smoke tests in PROD..."
+    - chmod +x scripts/test-integrations.sh
+    - ./scripts/test-integrations.sh prod
+  artifacts:
+    paths:
+      - test_report_prod.html
+    expire_in: 6 months
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+#################################################################
+# Rollback Job (Manual)
+#################################################################
+
+rollback:prod:
+  stage: verify
+  image:
+    name: hashicorp/terraform:${TF_VERSION}
+    entrypoint: [""]
+  before_script:
+    - apk add --no-cache curl jq python3 bash
+    - cd ${TF_ROOT}
+    - terraform init
+  script:
+    - echo "⚠️ Rolling back PROD deployment ⚠️"
+    - terraform destroy -var="environment=prod" -auto-approve
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: manual
+  environment:
+    name: production
+    action: stop
+
+#################################################################
+# Scheduled Jobs
+#################################################################
+
+backup:scheduled:
+  stage: validate
+  image: ubuntu:22.04
+  before_script:
+    - apt-get update && apt-get install -y curl jq
+  script:
+    - echo "Creating scheduled backup..."
+    - mkdir -p backups
+    - |
+      for env in dev test prod; do
+        echo "Backing up $env..."
+        # Backup logic here
+      done
+  artifacts:
+    paths:
+      - backups/
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+
+#################################################################
+# Notifications
+#################################################################
+
+.notification_template: &notification_template
+  image: curlimages/curl:latest
+  script:
+    - |
+      curl -X POST ${SLACK_WEBHOOK_URL} \
+        -H 'Content-Type: application/json' \
+        -d "{\"text\":\"${NOTIFICATION_MESSAGE}\"}"
+  rules:
+    - if: '$SLACK_WEBHOOK_URL'
+
+notify:success:
+  <<: *notification_template
+  stage: verify
+  variables:
+    NOTIFICATION_MESSAGE: "✅ OIC Migration Pipeline SUCCESS for ${CI_COMMIT_BRANCH}"
+  when: on_success
+
+notify:failure:
+  <<: *notification_template
+  stage: verify
+  variables:
+    NOTIFICATION_MESSAGE: "❌ OIC Migration Pipeline FAILED for ${CI_COMMIT_BRANCH}"
+  when: on_failure
+
+#################################################################
+# Pipeline Configuration Notes
+#################################################################
+
+# Configure these CI/CD Variables in GitLab:
+#
+# JWT Authentication (Required):
+# - OAUTH_CLIENT_ID_DEV
+# - OAUTH_CLIENT_SECRET_DEV (Protected, Masked)
+# - OAUTH_USERNAME_DEV
+# - OAUTH_PRIVATE_KEY_DEV (File type)
+#
+# - OAUTH_CLIENT_ID_TEST
+# - OAUTH_CLIENT_SECRET_TEST (Protected, Masked)
+# - OAUTH_USERNAME_TEST
+# - OAUTH_PRIVATE_KEY_TEST (File type)
+#
+# - OAUTH_CLIENT_ID_PROD
+# - OAUTH_CLIENT_SECRET_PROD (Protected, Masked)
+# - OAUTH_USERNAME_PROD
+# - OAUTH_PRIVATE_KEY_PROD (File type)
+#
+# Optional:
+# - SLACK_WEBHOOK_URL (for notifications)
+#
+# Branch Protection:
+# - Require approval for 'import:prod' job
+# - Protect 'main' branch
+# - Require passing tests before merge
