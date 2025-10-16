@@ -43,10 +43,10 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Developer Workstation                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
-│  │  Terraform   │  │   Scripts    │  │   Makefile   │     │
-│  └──────────────┘  └──────────────┘  └──────────────┘     │
+│                      Developer Workstation                  │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
+│  │  Terraform   │  │   Scripts    │  │   Makefile   │       │
+│  └──────────────┘  └──────────────┘  └──────────────┘       │
 └─────────────────────────────────────────────────────────────┘
                               │
             ┌─────────────────┼─────────────────┐
@@ -57,7 +57,7 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 │                  │  │                  │  │                  │
 │  ┌────────────┐  │  │  ┌────────────┐  │  │  ┌────────────┐  │
 │  │Integration │  │  │  │Integration │  │  │  │Integration │  │
-│  │+ Connections│  │  │  │+ Connections│  │  │  │+ Connections│  │
+│  │+ Connctions│  │  │  │+ Connctions│  │  │  │+ Connctions│  │
 │  └────────────┘  │  │  └────────────┘  │  │  └────────────┘  │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
          │                     ▲                     ▲
@@ -265,42 +265,11 @@ For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 4. Upload the same `certificate.cer` file again
 5. Click **Import**
 
-**Step 7: Assign Application to OIC Instance**
-
-1. In the domain, click **Oracle Cloud Services** in the menu
-2. Find and click your OIC instance application
-3. Click **Application roles** tab
-4. Expand **ServiceInvoker** role
-5. Click **Manage** (or Actions → Assigned applications)
-6. Click **Assign applications** (or Show applications)
-7. Find your confidential application (`oic-terraform-dev`)
-8. Select it and click **Assign**
-   
-   - Token issuance policy:
-     - Click **Add scope**
-     - Search for your OIC instance
-     - Select: `{OIC_URL}:443urn:opc:resource:consumer::all`
-     - Click **Add**
-   
-   - Click **Next**
-
-5. **Skip remaining steps**, click **Finish**
-
-6. **Upload Certificate:**
-   - Open the created application
-   - Go to **Configuration** tab
-   - Scroll to **Client configuration**
-   - Under **Token issuance policy**, click **Edit**
-   - Click **Upload client certificate**
-   - Upload the `.p12` file
-   - Enter password: `changeit` (or your password)
-   - Click **Save changes**
-
-7. **Get Credentials:**
+6. **Get Credentials:**
    - Copy **Client ID** from General Information
    - Copy **Client Secret** (click Show to reveal)
 
-8. **Assign to OIC:**
+7. **Assign to OIC:**
    - Go to Identity & Security → Domains → Oracle Cloud Services
    - Find your OIC instance
    - Click on it → **Application roles**
@@ -315,11 +284,11 @@ Test the complete JWT authentication flow:
 
 ```bash
 # Step 1: Set environment variables
-export IDCS_URL="https://idcs-xxxxx.identity.oraclecloud.com"
-export CLIENT_ID="your-client-id"
-export CLIENT_SECRET="your-client-secret"
-export USERNAME="your.email@example.com"
-export PRIVATE_KEY_PATH="~/.oic-certs/dev/private-key.pem"
+export IDCS_URL=https://idcs-xxxxx.identity.oraclecloud.com
+export CLIENT_ID=your-client-id
+export CLIENT_SECRET=your-client-secret
+export USERNAME=your.email@example.com
+export PRIVATE_KEY_PATH=~/.oic-certs/private-key.pem
 
 # Step 2: Generate JWT token
 JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH")
