@@ -135,8 +135,6 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 #### 1. Generate Certificates (Oracle's Official Method)
 
-Use Java's `keytool` as documented by Oracle:
-
 ```bash
 # Create certificate directories for each environment
 mkdir -p ~/.oic-certs/dev
@@ -214,27 +212,27 @@ chmod 600 ~/.oic-certs/$ENV/*
 
 #### 2. Create IDCS Confidential Application
 
-For each environment (DEV, TEST, PROD):
+For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 
-1. **Navigate to IDCS:**
-   - OCI Console → Identity & Security → Domains → [Your Domain]
-   - Click **Integrated applications**
+1. **Navigate to IDCS:** OCI Console → Identity & Security → Domains → [Your Domain] → Click **Integrated applications**
 
-2. **Create Application:**
-   - Click **Add application**
-   - Choose **Confidential Application**
-   - Click **Launch workflow**
+2. **Create Application:** Click **Add application** → Select **Confidential Application** → Click **Launch workflow**
 
-3. **Application Details:**
-   - Name: `oic-terraform-{env}` (e.g., `oic-terraform-dev`)
-   - Description: "Terraform automation for OIC migrations"
-   - Click **Next**
+3. **Add application details:** Name: `oic-terraform-dev`, Description: "Terraform JWT automation" → Click **Submit**
 
-4. **Configure OAuth:**
-   - Client configuration:
-     - ✅ **Configure this application as a client now**
-     - Allowed grant types: ✅ **JWT Assertion**
-     - Client type: **Confidential**
+4. **Configure OAuth:** 
+   - Click **OAuth configuration** tab → **Edit OAuth configuration**
+   - ✅ **Configure this application as a client now**
+   - **Allowed grant types**: ✅ **JWT assertion** and ✅ **Refresh token**
+   - Leave redirect URLs blank
+   - **Client type**: ⚠️ **Trusted** (NOT Confidential!)
+   - **Certificate**: Click **Import certificate** → upload `certificate.cer`
+   - **Token issuance policy**: Add Resources → Add scope → Select BOTH OIC scopes
+   - Click **Submit**
+
+5. **Activate:** Click **Activate** → **Activate application**
+
+6. **Get credentials:** Copy **Client ID** and **Client Secret**
    
    - Token issuance policy:
      - Click **Add scope**

@@ -149,29 +149,37 @@ chmod 600 ~/.oic-certs/*
 
 **Step 1: Add application details**
 - Name: `oic-terraform-dev` (or `test`, `prod`)
-- Click **Next**
+- Description: "Terraform automation for OIC JWT"
+- Click **Submit**
 
 **Step 2: Configure OAuth**
-- **Resource server configuration**: Skip
-- **Client configuration**:
+
+- Click **OAuth configuration** tab, then **Edit OAuth configuration** subtab
+- In **Client configuration** panel:
   - ✅ **Configure this application as a client now**
-  - **Allowed grant types**: 
-    - ✅ **JWT Assertion**
-  - **Client type**: **Confidential**
-  - Click **Add** under "Token issuance policy"
-  - **Authorized resources**: Click **Add scope** 
-    - Search for your OIC instance
-    - Select it and choose the scope (should show your OIC URL with `:443urn:opc:resource:consumer::all`)
+- **Allowed grant types**: 
+  - ✅ **JWT assertion**
+  - ✅ **Refresh token**
+- Leave **Redirect URL**, **Post-logout redirect URL**, and **Logout URL** blank
+- **Client type**: 
+  - ⚠️ Select **Trusted** (NOT "Confidential")
+- **Certificate section**:
+  - Click **Import certificate**
+  - Upload `~/.oic-certs/certificate.cer`
+- **Token issuance policy**:
+  - Select **Confidential** in **Authorized resources**
+  - Toggle **Add Resources** ON
+  - Click **Add scope**
+  - Find your OIC instance and select BOTH scopes
   - Click **Add**
+- Click **Submit**
 
-**Step 3: Configure resources** (if shown in wizard)
-- This may be combined with Step 2 depending on your OCI console version
-- Ensure your OIC instance scope is added
+**Step 3: Activate**
+- Click **Activate**, then **Activate application**
 
-**Step 4: Web tier policy**
-- Skip
-
-Click **Next** then **Finish**
+**Step 4: Get Credentials**
+- Copy **Client ID** from General Information
+- Copy **Client Secret** (click Show)
 
 ### Upload Certificate
 
@@ -250,19 +258,19 @@ For each environment, repeat all steps above with environment-specific directori
 export OAUTH_CLIENT_ID_DEV="your-dev-client-id"
 export OAUTH_CLIENT_SECRET_DEV="your-dev-client-secret"
 export OAUTH_USERNAME_DEV="your-idcs-username"
-export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/oic-jwt-key-dev.pem"
+export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/dev/private-key.pem"
 
 # TEST
 export OAUTH_CLIENT_ID_TEST="your-test-client-id"
 export OAUTH_CLIENT_SECRET_TEST="your-test-client-secret"
 export OAUTH_USERNAME_TEST="your-idcs-username"
-export OAUTH_PRIVATE_KEY_TEST="~/.oic-certs/oic-jwt-key-test.pem"
+export OAUTH_PRIVATE_KEY_TEST="~/.oic-certs/test/private-key.pem"
 
 # PROD
 export OAUTH_CLIENT_ID_PROD="your-prod-client-id"
 export OAUTH_CLIENT_SECRET_PROD="your-prod-client-secret"
 export OAUTH_USERNAME_PROD="your-idcs-username"
-export OAUTH_PRIVATE_KEY_PROD="~/.oic-certs/oic-jwt-key-prod.pem"
+export OAUTH_PRIVATE_KEY_PROD="~/.oic-certs/prod/private-key.pem"
 ```
 
 ---
