@@ -37,6 +37,7 @@ Automated migration of Oracle Integration Cloud (OIC3) integrations between DEV,
 - OCI CLI configured
 - Python 3 or Node.js (for JWT generation)
 - jq (JSON processor)
+- Java keytool (for certificate generation)
 - Access to OIC3 instances in DEV, TEST, and PROD
 
 ### Installation
@@ -53,17 +54,15 @@ chmod +x scripts/*.sh
 cd terraform && terraform init && cd ..
 ```
 
-### 30-Minute Setup
+### Setup Guide
 
-Follow the [Quick Start Guide](./docs/Quick-Start-Guide.md) for complete setup instructions.
+Follow the [Implementation Guide](./docs/Implementation-Guide.md) for complete setup instructions including:
 
-**Summary:**
-1. Generate JWT certificates
-2. Create IDCS confidential applications
-3. Upload certificates and assign to OIC
-4. Configure `terraform.tfvars`
-5. Test authentication
-6. Run your first migration
+1. **JWT Certificate Generation** (using Oracle's keytool method)
+2. **IDCS Application Configuration** (with Trusted client type)
+3. **Terraform Configuration** (terraform.tfvars setup)
+4. **Authentication Testing** (verify JWT flow)
+5. **First Migration** (export from DEV, import to TEST)
 
 ### Your First Commands
 
@@ -374,8 +373,7 @@ export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/dev/private-key.pem"
 
 | Document | Description |
 |----------|-------------|
-| [Quick Start Guide](./docs/Quick-Start-Guide.md) | Get started in 30 minutes |
-| [Implementation Guide](./docs/Implementation-Guide.md) | Complete reference guide |
+| [Implementation Guide](./docs/Implementation-Guide.md) | Complete setup and reference guide |
 | [Deployment Checklist](./docs/Deployment-Checklist.md) | Production deployment checklist |
 | [Setup Summary](./docs/Setup-Summary.md) | Post-setup guide and next steps |
 

@@ -176,46 +176,6 @@ integrations_to_migrate = [
 ]
 ```
 
-### 2. Test Your Configuration
-
-```bash
-# Validate Terraform
-make validate
-
-# Plan export from DEV
-make plan ENV=dev
-
-# Plan import to TEST
-make plan ENV=test
-```
-
-### 3. Run Your First Migration
-
-```bash
-# Export from DEV
-make export-dev
-
-# Import to TEST
-make import-test
-
-# Run tests
-make test ENV=test
-```
-
-### 4. Set Up CI/CD (Optional)
-
-```bash
-# Copy CI/CD template
-cp .gitlab-ci.yml.example .gitlab-ci.yml
-
-# Configure GitLab CI/CD variables:
-# - OAUTH_CLIENT_ID_DEV
-# - OAUTH_CLIENT_SECRET_DEV
-# - OAUTH_USERNAME_DEV
-# - OAUTH_PRIVATE_KEY_DEV (File type)
-# (repeat for TEST and PROD)
-```
-
 ---
 
 ## 🆘 Getting Help
@@ -232,6 +192,7 @@ openssl rsa -in ~/.oic-certs/dev/private-key.pem -check
 
 # Verify IDCS app configuration
 # - Certificate uploaded?
+# - Client type = Trusted?
 # - App assigned to OIC?
 # - Correct scopes?
 ```
@@ -259,8 +220,7 @@ make plan ENV=test
 ### Resources
 
 📖 **Documentation:**
-- [Quick Start Guide](./docs/Quick-Start-Guide.md) - Get started in 30 minutes
-- [Implementation Guide](./docs/Implementation-Guide.md) - Complete reference
+- [Implementation Guide](./docs/Implementation-Guide.md) - Complete setup and reference
 - [Deployment Checklist](./docs/Deployment-Checklist.md) - Production deployments
 
 🔧 **Commands:**

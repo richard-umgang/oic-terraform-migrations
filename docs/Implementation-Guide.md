@@ -214,25 +214,67 @@ chmod 600 ~/.oic-certs/$ENV/*
 
 For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 
-1. **Navigate to IDCS:** OCI Console → Identity & Security → Domains → [Your Domain] → Click **Integrated applications**
+**Step 1: Navigate and Create**
+1. OCI Console → Identity & Security → Domains → [Your Domain]
+2. Click **Integrated applications**
+3. Click **Add application**
+4. Select **Confidential Application**
+5. Click **Launch workflow**
 
-2. **Create Application:** Click **Add application** → Select **Confidential Application** → Click **Launch workflow**
+**Step 2: Add Application Details**
+- Name: `oic-terraform-dev` (or `test`, `prod`)
+- Description: "Terraform automation for OIC JWT"
+- Click **Submit**
 
-3. **Add application details:** Name: `oic-terraform-dev`, Description: "Terraform JWT automation" → Click **Submit**
+**Step 3: Configure OAuth**
 
-4. **Configure OAuth:** 
-   - Click **OAuth configuration** tab → **Edit OAuth configuration**
-   - ✅ **Configure this application as a client now**
-   - **Allowed grant types**: ✅ **JWT assertion** and ✅ **Refresh token**
-   - Leave redirect URLs blank
-   - **Client type**: ⚠️ **Trusted** (NOT Confidential!)
-   - **Certificate**: Click **Import certificate** → upload `certificate.cer`
-   - **Token issuance policy**: Add Resources → Add scope → Select BOTH OIC scopes
-   - Click **Submit**
+- Click **OAuth configuration** tab, then **Edit OAuth configuration** subtab
+- In **Client configuration** panel:
+  - ✅ **Configure this application as a client now**
+- **Allowed grant types**: 
+  - ✅ **JWT assertion**
+  - ✅ **Refresh token**
+- Leave **Redirect URL**, **Post-logout redirect URL**, and **Logout URL** blank
+- **Client type**: 
+  - ⚠️ Select **Trusted** (NOT "Confidential")
+- **Certificate section**:
+  - Click **Import certificate**
+  - Upload `~/.oic-certs/dev/certificate.cer`
+- **Token issuance policy**:
+  - Select **Confidential** in **Authorized resources**
+  - Toggle **Add Resources** ON
+  - Click **Add scope**
+  - Find your OIC instance and select BOTH scopes
+  - Click **Add**
+- Click **Submit**
 
-5. **Activate:** Click **Activate** → **Activate application**
+**Step 4: Activate**
+- Click **Activate**, then **Activate application**
 
-6. **Get credentials:** Copy **Client ID** and **Client Secret**
+**Step 5: Get Credentials**
+- Copy **Client ID** from General Information
+- Copy **Client Secret** (click Show)
+
+**Step 6: Add Certificate as Trusted Partner**
+
+⚠️ Oracle documentation requires this additional step:
+
+1. In the domain menu bar, click **Security**
+2. Scroll to **Trusted partner certificates** section
+3. Click **Import certificate**
+4. Upload the same `certificate.cer` file again
+5. Click **Import**
+
+**Step 7: Assign Application to OIC Instance**
+
+1. In the domain, click **Oracle Cloud Services** in the menu
+2. Find and click your OIC instance application
+3. Click **Application roles** tab
+4. Expand **ServiceInvoker** role
+5. Click **Manage** (or Actions → Assigned applications)
+6. Click **Assign applications** (or Show applications)
+7. Find your confidential application (`oic-terraform-dev`)
+8. Select it and click **Assign**
    
    - Token issuance policy:
      - Click **Add scope**
