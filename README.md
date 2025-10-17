@@ -68,6 +68,7 @@ Follow the [Implementation Guide](./docs/Implementation-Guide.md) for complete s
 
 ```bash
 # Test JWT authentication
+# Note: Ensure your IDCS user has the ServiceInvoker role
 ./scripts/test-jwt-auth.sh dev
 
 # Discover available integrations

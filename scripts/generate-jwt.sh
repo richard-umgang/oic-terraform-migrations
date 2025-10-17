@@ -5,23 +5,34 @@
 #
 # Generates a JWT token for JWT User Assertion authentication
 # 
-# Usage: ./generate-jwt.sh <username> <client_id> <private_key_path>
+# Usage: ./generate-jwt.sh <username> <client_id> <private_key_path> [key_alias]
 #################################################################
 
 set -e
 
 # Check arguments
-if [ $# -ne 3 ]; then
-    echo "Usage: $0 <username> <client_id> <private_key_path>"
+if [ $# -lt 3 ]; then
+    echo "Usage: $0 <username> <client_id> <private_key_path> [key_alias]"
+    echo ""
+    echo "Arguments:"
+    echo "  username          - IDCS username with ServiceInvoker role"
+    echo "                      (e.g., john.doe@example.com or service-account@example.com)"
+    echo "  client_id         - OAuth client ID from confidential application"
+    echo "  private_key_path  - Path to private key PEM file"
+    echo "  key_alias         - (Optional) Certificate alias/kid matching keytool alias"
+    echo "                      Default: 'oic-jwt'"
     echo ""
     echo "Example:"
-    echo "  $0 john.doe@example.com my-client-id ./private-key.pem"
+    echo "  $0 john.doe@example.com abc123-client-id ~/.oic-certs/dev/private-key.pem oic-jwt-dev"
+    echo ""
+    echo "Note: The username must be assigned the ServiceInvoker role in IDCS"
     exit 1
 fi
 
 USERNAME="$1"
 CLIENT_ID="$2"
 PRIVATE_KEY_PATH="$3"
+KEY_ALIAS="${4:-oic-jwt}"  # Default to 'oic-jwt' if not provided
 
 # Verify private key exists
 if [ ! -f "$PRIVATE_KEY_PATH" ]; then
@@ -51,7 +62,7 @@ def base64url_encode(data):
         data = data.encode('utf-8')
     return base64.urlsafe_b64encode(data).rstrip(b'=').decode('utf-8')
 
-def generate_jwt(username, client_id, private_key_path):
+def generate_jwt(username, client_id, private_key_path, key_alias):
     """Generate JWT token for JWT User Assertion"""
     
     # Read private key
@@ -62,19 +73,25 @@ def generate_jwt(username, client_id, private_key_path):
     now = int(time.time())
     exp = now + 300
     
-    # JWT Header
+    # Generate unique JWT ID to prevent replay attacks
+    import uuid
+    jti = str(uuid.uuid4())
+    
+    # JWT Header - MUST include kid matching certificate alias
     header = {
         "alg": "RS256",
-        "typ": "JWT"
+        "typ": "JWT",
+        "kid": key_alias
     }
     
     # JWT Payload
     payload = {
         "sub": username,
-        "aud": "https://identity.oraclecloud.com/",
-        "iss": client_id,
+        "jti": jti,
+        "iat": now,
         "exp": exp,
-        "iat": now
+        "iss": client_id,
+        "aud": "https://identity.oraclecloud.com/"
     }
     
     # Encode header and payload
@@ -117,7 +134,7 @@ def generate_jwt(username, client_id, private_key_path):
         print(jwt_token)
 
 # Generate JWT
-generate_jwt("$USERNAME", "$CLIENT_ID", "$PRIVATE_KEY_PATH")
+generate_jwt("$USERNAME", "$CLIENT_ID", "$PRIVATE_KEY_PATH", "$KEY_ALIAS")
 EOF
 
 # Generate JWT using Node.js (fallback)
@@ -134,7 +151,7 @@ function base64urlEncode(str) {
         .replace(/=/g, '');
 }
 
-function generateJWT(username, clientId, privateKeyPath) {
+function generateJWT(username, clientId, privateKeyPath, keyAlias) {
     // Read private key
     const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
     
@@ -142,19 +159,25 @@ function generateJWT(username, clientId, privateKeyPath) {
     const now = Math.floor(Date.now() / 1000);
     const exp = now + 300;
     
-    // JWT Header
+    // Generate unique JWT ID to prevent replay attacks
+    const crypto = require('crypto');
+    const jti = crypto.randomUUID();
+    
+    // JWT Header - MUST include kid matching certificate alias
     const header = {
         alg: 'RS256',
-        typ: 'JWT'
+        typ: 'JWT',
+        kid: keyAlias
     };
     
     // JWT Payload
     const payload = {
         sub: username,
-        aud: 'https://identity.oraclecloud.com/',
-        iss: clientId,
+        jti: jti,
+        iat: now,
         exp: exp,
-        iat: now
+        iss: clientId,
+        aud: 'https://identity.oraclecloud.com/'
     };
     
     // Encode
@@ -173,6 +196,6 @@ function generateJWT(username, clientId, privateKeyPath) {
     console.log(jwt);
 }
 
-generateJWT('$USERNAME', '$CLIENT_ID', '$PRIVATE_KEY_PATH');
+generateJWT('$USERNAME', '$CLIENT_ID', '$PRIVATE_KEY_PATH', '$KEY_ALIAS');
 EOF
 fi

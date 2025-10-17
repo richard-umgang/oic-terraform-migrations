@@ -169,7 +169,8 @@ if [ ! -f "$SCRIPT_DIR/generate-jwt.sh" ]; then
     exit 1
 fi
 
-JWT_TOKEN=$("$SCRIPT_DIR/generate-jwt.sh" "$OAUTH_USERNAME" "$OAUTH_CLIENT_ID" "$OAUTH_PRIVATE_KEY" 2>&1)
+# Step 2: Generate JWT token (with key alias matching certificate)
+JWT_TOKEN=$("$SCRIPT_DIR/generate-jwt.sh" "$OAUTH_USERNAME" "$OAUTH_CLIENT_ID" "$OAUTH_PRIVATE_KEY" "oic-jwt-$ENV" 2>&1)
 
 if [ $? -ne 0 ]; then
     echo -e "${RED}  ✗ JWT generation failed${NC}"

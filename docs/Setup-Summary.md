@@ -14,14 +14,21 @@ You've successfully set up JWT User Assertion authentication for OIC3! Here's wh
 
 Your working authentication command:
 ```bash
-# Generate JWT
-JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH")
+# Generate JWT (username must have ServiceInvoker role in IDCS)
+JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH" "$KEY_ALIAS")
 
 # Exchange for access token
 curl -H "Authorization: Basic $(echo -n "$CLIENT_ID:$CLIENT_SECRET" | base64)" \
   -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=$JWT_TOKEN&scope=..." \
   "${IDCS_URL}/oauth2/v1/token"
 ```
+
+**Key Parameters:**
+- `USERNAME`: IDCS user with ServiceInvoker role (e.g., `john.doe@example.com`)
+- `CLIENT_ID`: OAuth client ID from your confidential app
+- `CLIENT_SECRET`: OAuth client secret
+- `PRIVATE_KEY_PATH`: Path to your private key PEM file
+- `KEY_ALIAS`: Certificate alias from keytool (e.g., `oic-jwt-dev`)
 
 ---
 

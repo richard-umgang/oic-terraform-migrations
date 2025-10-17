@@ -43,10 +43,10 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Developer Workstation                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│  │  Terraform   │  │   Scripts    │  │   Makefile   │       │
-│  └──────────────┘  └──────────────┘  └──────────────┘       │
+│                      Developer Workstation                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Terraform   │  │   Scripts    │  │   Makefile   │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
 └─────────────────────────────────────────────────────────────┘
                               │
             ┌─────────────────┼─────────────────┐
@@ -57,7 +57,7 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 │                  │  │                  │  │                  │
 │  ┌────────────┐  │  │  ┌────────────┐  │  │  ┌────────────┐  │
 │  │Integration │  │  │  │Integration │  │  │  │Integration │  │
-│  │+ Connctions│  │  │  │+ Connctions│  │  │  │+ Connctions│  │
+│  │+ Connections│  │  │  │+ Connections│  │  │  │+ Connections│  │
 │  └────────────┘  │  │  └────────────┘  │  │  └────────────┘  │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
          │                     ▲                     ▲
@@ -151,6 +151,9 @@ keytool -genkey -keyalg RSA \
   -storepass changeit \
   -validity 365 \
   -keysize 2048
+
+# ⚠️ IMPORTANT: Remember this alias (oic-jwt-$ENV)
+# It must match the "kid" field in your JWT token header
 
 # Follow the interactive prompts:
 # What is your first and last name? [Your name or: OIC JWT Auth DEV]
@@ -265,11 +268,42 @@ For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 4. Upload the same `certificate.cer` file again
 5. Click **Import**
 
-6. **Get Credentials:**
+**Step 7: Assign Application to OIC Instance**
+
+1. In the domain, click **Oracle Cloud Services** in the menu
+2. Find and click your OIC instance application
+3. Click **Application roles** tab
+4. Expand **ServiceInvoker** role
+5. Click **Manage** (or Actions → Assigned applications)
+6. Click **Assign applications** (or Show applications)
+7. Find your confidential application (`oic-terraform-dev`)
+8. Select it and click **Assign**
+   
+   - Token issuance policy:
+     - Click **Add scope**
+     - Search for your OIC instance
+     - Select: `{OIC_URL}:443urn:opc:resource:consumer::all`
+     - Click **Add**
+   
+   - Click **Next**
+
+5. **Skip remaining steps**, click **Finish**
+
+6. **Upload Certificate:**
+   - Open the created application
+   - Go to **Configuration** tab
+   - Scroll to **Client configuration**
+   - Under **Token issuance policy**, click **Edit**
+   - Click **Upload client certificate**
+   - Upload the `.p12` file
+   - Enter password: `changeit` (or your password)
+   - Click **Save changes**
+
+7. **Get Credentials:**
    - Copy **Client ID** from General Information
    - Copy **Client Secret** (click Show to reveal)
 
-7. **Assign to OIC:**
+8. **Assign to OIC:**
    - Go to Identity & Security → Domains → Oracle Cloud Services
    - Find your OIC instance
    - Click on it → **Application roles**
@@ -284,17 +318,37 @@ Test the complete JWT authentication flow:
 
 ```bash
 # Step 1: Set environment variables
-export IDCS_URL=https://idcs-xxxxx.identity.oraclecloud.com
-export CLIENT_ID=your-client-id
-export CLIENT_SECRET=your-client-secret
-export USERNAME=your.email@example.com
-export PRIVATE_KEY_PATH=~/.oic-certs/private-key.pem
+export IDCS_URL="https://idcs-xxxxx.identity.oraclecloud.com"
+export CLIENT_ID="your-client-id"
+export CLIENT_SECRET="your-client-secret"
+export USERNAME="your.email@example.com"  # IDCS user with ServiceInvoker role
+export PRIVATE_KEY_PATH="~/.oic-certs/dev/private-key.pem"
+export KEY_ALIAS="oic-jwt-dev"  # Must match your keytool alias
 
-# Step 2: Generate JWT token
-JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH")
+# Step 2: Generate JWT token (with key alias)
+JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH" "$KEY_ALIAS")
 
 echo "JWT Token generated: ${JWT_TOKEN:0:50}..."
+```
 
+**Important Parameters:**
+- **USERNAME**: IDCS username that will invoke integrations. This user MUST have the **ServiceInvoker** role assigned in IDCS. Can be:
+  - Your personal IDCS account (e.g., `john.doe@example.com`)
+  - A service account created specifically for automation (recommended for production)
+- **CLIENT_ID**: The OAuth client ID from your confidential application
+- **CLIENT_SECRET**: The OAuth client secret
+- **KEY_ALIAS**: Must match the alias used in `keytool -genkey` (e.g., `oic-jwt-dev`)
+
+**Assigning ServiceInvoker Role:**
+1. Go to Identity & Security → Domains → Oracle Cloud Services
+2. Find your OIC instance
+3. Click Application roles → ServiceInvoker
+4. Click Manage users
+5. Assign your USERNAME to this role
+
+**Continue with token exchange:**
+
+```bash
 # Step 3: Exchange JWT for Access Token (Oracle's documented method)
 BASIC_AUTH=$(echo -n "${CLIENT_ID}:${CLIENT_SECRET}" | base64)
 
