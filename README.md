@@ -1,371 +1,131 @@
-# OIC3 Terraform Migration
+# OIC Terraform Migration Solution
 
-Automated migration of Oracle Integration Cloud (OIC3) integrations between DEV, TEST, and PROD environments using Terraform and JWT authentication.
-
-[![Terraform](https://img.shields.io/badge/Terraform-1.6+-purple)](https://www.terraform.io/)
-[![OCI](https://img.shields.io/badge/OCI-Compatible-red)](https://www.oracle.com/cloud/)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Automated Oracle Integration Cloud (OIC) migration solution using Terraform, enabling consistent and repeatable deployments across DEV, TEST, and PROD environments with JWT authentication.
 
 ---
 
-## 🎯 What This Does
+## 🎯 Overview
 
-- **Exports** integrations (with connections) from DEV as `.iar` files
-- **Stores** artifacts in OCI Object Storage with versioning
-- **Imports** to TEST/PROD with environment-specific configurations  
-- **Tests** connections and integrations automatically
-- **Tracks** all changes via Terraform state and Git
+This solution automates the migration of OIC integrations (with connections) across environments by:
 
-## ✨ Key Features
+- **Exporting** integrations from DEV as `.iar` files
+- **Storing** artifacts in OCI Object Storage with versioning
+- **Importing** to TEST/PROD with environment-specific configurations
+- **Testing** connections and integrations automatically
+- **Tracking** all changes via Terraform state
 
-- ✅ **JWT User Assertion** - Enterprise-grade authentication with certificates
-- ✅ **Infrastructure as Code** - All migrations defined in Terraform
-- ✅ **Version Control** - Track all integration artifacts in Object Storage
-- ✅ **Environment-Specific Configs** - Automatically update connection properties per environment
-- ✅ **Automated Testing** - Test integrations and connections after deployment
-- ✅ **CI/CD Ready** - GitLab pipeline included with approval gates
-- ✅ **Rollback Support** - Restore previous versions easily
-- ✅ **Discovery Tools** - List all integrations and generate configurations
+### Key Features
+
+✅ **Automated Migrations** - No manual export/import  
+✅ **Environment-Specific Config** - Different URLs/credentials per environment  
+✅ **Version Control** - All artifacts tracked in Git  
+✅ **Rollback Capability** - Restore previous versions easily  
+✅ **CI/CD Ready** - GitLab pipeline included  
+✅ **Secure JWT Auth** - Certificate-based authentication  
+✅ **Comprehensive Testing** - Automated test suite
+
+---
+
+## 📋 Prerequisites
+
+### Required Tools
+
+- **Terraform** >= 1.0
+- **OCI CLI** configured with API keys
+- **jq** for JSON processing
+- **OpenSSL** for certificate operations
+- **Java keytool** for certificate generation
+- **Python 3** or **Node.js** (for JWT generation)
+
+### Required Access
+
+- OCI tenancy with OIC instances
+- IDCS admin access for OAuth app creation
+- Object Storage bucket for artifacts
+- Network access to OIC and IDCS
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Terraform 1.6+
-- OCI CLI configured
-- Python 3 or Node.js (for JWT generation)
-- jq (JSON processor)
-- Java keytool (for certificate generation)
-- Access to OIC3 instances in DEV, TEST, and PROD
-
-### Installation
+### 1. Install Dependencies
 
 ```bash
-# Clone repository
+# Install Terraform
+wget https://releases.hashicorp.com/terraform/1.6.0/terraform_1.6.0_linux_amd64.zip
+unzip terraform_1.6.0_linux_amd64.zip
+sudo mv terraform /usr/local/bin/
+
+# Install OCI CLI
+bash -c "$(curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh)"
+
+# Verify
+terraform version
+oci --version
+```
+
+### 2. Clone and Setup
+
+```bash
 git clone <your-repo-url>
 cd oic-terraform-migrations
 
-# Make scripts executable
-chmod +x scripts/*.sh
-
-# Initialize Terraform
-cd terraform && terraform init && cd ..
+# Initialize
+make init
 ```
 
-### Setup Guide
+### 3. Configure Authentication
 
-Follow the [Implementation Guide](./docs/Implementation-Guide.md) for complete setup instructions including:
+Follow the Implementation Guide to:
+1. Generate JWT certificates using `keytool` (Oracle's official method)
+2. Create IDCS confidential applications (one per environment)
+3. Upload certificates and configure OAuth
+4. Set environment variables with credentials
 
-1. **JWT Certificate Generation** (using Oracle's keytool method)
-2. **IDCS Application Configuration** (with Trusted client type)
-3. **Terraform Configuration** (terraform.tfvars setup)
-4. **Authentication Testing** (verify JWT flow)
-5. **First Migration** (export from DEV, import to TEST)
+See: [`docs/Implementation-Guide.md`](./docs/Implementation-Guide.md) - Section: Authentication Setup
 
-### Your First Commands
+### 4. Configure Terraform
 
 ```bash
-# Test JWT authentication
-# Note: Ensure your IDCS user has the ServiceInvoker role
+cd terraform
+cp terraform.tfvars.example terraform.tfvars
+vim terraform.tfvars
+
+# Configure:
+# - OIC instance URLs
+# - Object Storage bucket
+# - Integrations to migrate
+```
+
+### 5. Test Authentication
+
+```bash
 ./scripts/test-jwt-auth.sh dev
+./scripts/test-jwt-auth.sh test
+./scripts/test-jwt-auth.sh prod
+```
 
-# Discover available integrations
+### 6. Discover Integrations
+
+```bash
 make list-integrations ENV=dev
+# Opens HTML report with all integrations and Terraform snippets
+```
 
+### 7. Your First Migration
+
+```bash
 # Export from DEV
 make export-dev
 
 # Import to TEST
 make import-test
 
-# Run tests
-make test ENV=test
-```
-
----
-
-## 📁 Project Structure
-
-```
-oic-terraform-migrations/
-├── terraform/                          # Terraform modules
-│   ├── modules/
-│   │   ├── oic-integration-export/    # Export module
-│   │   └── oic-integration-import/    # Import module
-│   ├── main.tf                         # Main workflow
-│   ├── terraform.tfvars                # Your configuration
-│   └── terraform.tfvars.example        # Template
-├── scripts/                            # Helper scripts
-│   ├── generate-jwt.sh                 # JWT token generator
-│   ├── manage-credentials.sh           # Credential management
-│   ├── list-integrations.sh            # Discovery
-│   ├── test-integrations.sh            # Testing
-│   └── test-jwt-auth.sh                # Auth validation
-├── docs/                               # Documentation
-│   ├── Quick-Start-Guide.md            # 30-min setup
-│   ├── Implementation-Guide.md         # Complete guide
-│   ├── Deployment-Checklist.md         # Production checklist
-│   └── Setup-Summary.md                # Post-setup guide
-├── Makefile                            # Common operations
-├── .gitlab-ci.yml                      # CI/CD pipeline
-└── README.md                           # This file
-```
-
----
-
-## 🔧 Configuration
-
-### terraform.tfvars
-
-```hcl
-# Environment
-environment = "dev"
-
-# OIC Instances
-oic_instances = {
-  dev  = { url = "...", instance_name = "...", idcs_url = "..." }
-  test = { url = "...", instance_name = "...", idcs_url = "..." }
-  prod = { url = "...", instance_name = "...", idcs_url = "..." }
-}
-
-# JWT Credentials (from environment variables)
-oauth_credentials = {
-  dev  = { client_id = "", client_secret = "", username = "", private_key_path = "" }
-  test = { client_id = "", client_secret = "", username = "", private_key_path = "" }
-  prod = { client_id = "", client_secret = "", username = "", private_key_path = "" }
-}
-
-# Object Storage
-bucket_config = {
-  name           = "oic-migration-artifacts"
-  namespace      = "your-tenancy"
-  compartment_id = "ocid1.compartment.oc1..."
-}
-
-# Integrations to Migrate
-integrations_to_migrate = [
-  {
-    id      = "HELLO_WORLD|01.00.0000"
-    code    = "HELLO_WORLD"
-    version = "01.00.0000"
-    
-    connections = {
-      rest_conn = {
-        id = "REST_CONNECTION"
-        test_properties = { ... }
-        prod_properties = { ... }
-      }
-    }
-  }
-]
-```
-
----
-
-## 💻 Common Commands
-
-### Discovery & Status
-
-```bash
-make list-integrations ENV=dev      # List all integrations
-make status ENV=test                 # Show current status
-make test-auth ENV=dev               # Test JWT authentication
-```
-
-### Export & Import
-
-```bash
-make export-dev                      # Export from DEV
-make import-test                     # Import to TEST
-make import-prod                     # Import to PROD (with confirmation)
-```
-
-### Complete Workflows
-
-```bash
-make promote-to-test                 # DEV → TEST (export + import + test)
-make promote-to-prod                 # DEV → PROD (export + import + test)
-```
-
-### Testing
-
-```bash
-make test ENV=test                   # Run all integration tests
-make test-connections ENV=test       # Test connections only
-make smoke-test ENV=prod             # Quick smoke test
-```
-
-### Backup & Recovery
-
-```bash
-make backup ENV=prod                 # Backup PROD integrations
-make list-backups                    # Show available backups
-make restore ENV=prod DATE=<date>    # Restore from backup
-```
-
-### Utilities
-
-```bash
-make help                            # Show all commands
-make validate                        # Validate Terraform
-make format                          # Format Terraform files
-make clean                           # Clean temporary files
-```
-
----
-
-## 🔐 Authentication
-
-Uses JWT User Assertion for secure API access to OIC3 instances.
-
-### Authentication Flow
-
-```
-1. Generate JWT Token
-   ├── Sign with private key
-   ├── Include username and client ID
-   └── Valid for 5 minutes
-
-2. Exchange JWT for Access Token
-   ├── POST to IDCS OAuth2 endpoint
-   ├── grant_type: jwt-bearer
-   └── Get access token (valid 1 hour)
-
-3. Call OIC REST APIs
-   └── Authorization: Bearer <access_token>
-```
-
-### Setup
-
-See [Quick Start Guide](./docs/Quick-Start-Guide.md#step-3-configure-oauth2-with-jwt-10-minutes) for detailed JWT setup instructions.
-
----
-
-## 🔄 Typical Workflow
-
-### 1. Development
-
-```bash
-# Develop integration in DEV OIC console
-# Test the integration
-```
-
-### 2. Export
-
-```bash
-# Discover integrations
-make list-integrations ENV=dev
-
-# Export to Object Storage
-make export-dev
-```
-
-### 3. Import to TEST
-
-```bash
-# Import and configure
-make import-test
-
 # Test
 make test ENV=test
-```
 
-### 4. Promote to PROD
-
-```bash
-# After TEST validation
+# Promote to PROD (requires confirmation)
 make import-prod
-
-# Manual approval required
-# Type: PROD
-```
-
----
-
-## 🤖 CI/CD Pipeline
-
-GitLab CI/CD pipeline included with:
-
-- ✅ **Automatic validation** on merge requests
-- ✅ **Automatic export** from DEV on main branch
-- ✅ **Automatic import** to TEST
-- ✅ **Automated testing** in TEST
-- ✅ **Manual approval** for PROD deployment
-- ✅ **Rollback capability**
-- ✅ **Slack notifications** (optional)
-
-### Configure GitLab CI/CD
-
-Set these variables in GitLab → Settings → CI/CD → Variables:
-
-**JWT Credentials (for each environment):**
-- `OAUTH_CLIENT_ID_DEV`
-- `OAUTH_CLIENT_SECRET_DEV` (Protected, Masked)
-- `OAUTH_USERNAME_DEV`
-- `OAUTH_PRIVATE_KEY_DEV` (File type)
-
-Repeat for TEST and PROD.
-
-See [.gitlab-ci.yml](./.gitlab-ci.yml) for complete configuration.
-
----
-
-## 📊 Monitoring & Testing
-
-### Automated Tests
-
-After each import, the solution automatically:
-
-1. **Tests connections** - Verifies connectivity and credentials
-2. **Tests integrations** - Checks activation status
-3. **Generates reports** - HTML test reports with results
-
-### Test Reports
-
-```bash
-# Run tests
-make test ENV=test
-
-# View report
-open test_report_test.html
-```
-
-Reports include:
-- ✅ Integration activation status
-- ✅ Connection test results
-- ✅ Detailed error messages
-- ✅ Summary statistics
-
----
-
-## 🛡️ Security
-
-### Best Practices
-
-- ✅ **JWT User Assertion** - Certificate-based authentication
-- ✅ **OCI Vault** - Store credentials securely (recommended)
-- ✅ **Environment Variables** - Never commit credentials to Git
-- ✅ **GitLab Protected Variables** - Use protected and masked variables
-- ✅ **Certificate Rotation** - Rotate annually
-- ✅ **Access Control** - Limit who can deploy to PROD
-- ✅ **Audit Trail** - All API calls logged
-
-### Storing Credentials
-
-**Option 1: Environment Variables (Development)**
-```bash
-export OAUTH_CLIENT_ID_DEV="..."
-export OAUTH_CLIENT_SECRET_DEV="..."
-export OAUTH_USERNAME_DEV="..."
-export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/dev/private-key.pem"
-```
-
-**Option 2: OCI Vault (Production)**
-```bash
-./scripts/manage-credentials.sh store-oauth dev \
-  "$CLIENT_ID" "$CLIENT_SECRET" "$USERNAME" "$PRIVATE_KEY_PATH"
 ```
 
 ---
@@ -374,9 +134,232 @@ export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/dev/private-key.pem"
 
 | Document | Description |
 |----------|-------------|
-| [Implementation Guide](./docs/Implementation-Guide.md) | Complete setup and reference guide |
-| [Deployment Checklist](./docs/Deployment-Checklist.md) | Production deployment checklist |
-| [Setup Summary](./docs/Setup-Summary.md) | Post-setup guide and next steps |
+| [Implementation Guide](./docs/Implementation-Guide.md) | Complete setup and usage guide |
+| [Deployment Checklist](./docs/Deployment-Checklist.md) | Pre/post deployment checklist |
+| [Setup Summary](./docs/Setup-Summary.md) | Quick reference |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Developer Workstation                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐     │
+│  │  Terraform   │  │   Scripts    │  │   Makefile   │     │
+│  └──────────────┘  └──────────────┘  └──────────────┘     │
+└─────────────────────────────────────────────────────────────┘
+                              │
+            ┌─────────────────┼─────────────────┐
+            │                 │                 │
+            ▼                 ▼                 ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│   OIC DEV        │  │   OIC TEST       │  │   OIC PROD       │
+│  Integrations    │  │  Integrations    │  │  Integrations    │
+│  + Connections   │  │  + Connections   │  │  + Connections   │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+         │                     ▲                     ▲
+         │ Export              │ Import              │ Import
+         │ (.iar)              │ (.iar)              │ (.iar)
+         ▼                     │                     │
+┌──────────────────────────────┴─────────────────────┘
+│           OCI Object Storage                       │
+│    integrations/dev/INTEGRATION-VERSION.iar        │
+│    integrations/dev/INTEGRATION-latest.iar         │
+└────────────────────────────────────────────────────┘
+```
+
+---
+
+## 💻 Common Commands
+
+### Discovery & Planning
+
+```bash
+make list-integrations ENV=dev    # Discover integrations
+make status ENV=test               # Show current status
+make plan ENV=test                 # Show Terraform plan
+```
+
+### Export & Import
+
+```bash
+make export-dev                    # Export from DEV
+make import-test                   # Import to TEST
+make import-prod                   # Import to PROD (with confirmation)
+```
+
+### Full Workflows
+
+```bash
+make promote-to-test               # DEV → TEST (export + import + test)
+make promote-to-prod               # TEST → PROD (verify + import + test)
+```
+
+### Testing
+
+```bash
+make test ENV=test                 # Run all tests
+make test-connections ENV=test     # Test connections only
+make smoke-test ENV=prod           # Quick smoke test
+make test-auth ENV=dev             # Test JWT authentication
+```
+
+### Utilities
+
+```bash
+make validate                      # Validate Terraform
+make format                        # Format Terraform files
+make clean                         # Clean temporary files
+make doctor                        # Check dependencies
+make help                          # Show all commands
+```
+
+---
+
+## 📁 Project Structure
+
+```
+oic-terraform-migrations/
+├── terraform/                      # Terraform modules
+│   ├── modules/
+│   │   ├── oic-integration-export/    # Export module
+│   │   └── oic-integration-import/    # Import module
+│   ├── main.tf                     # Main workflow
+│   ├── terraform.tfvars            # Your configuration
+│   └── terraform.tfvars.example    # Configuration template
+├── scripts/                        # Helper scripts
+│   ├── generate-jwt.sh            # JWT token generator
+│   ├── manage-credentials.sh      # Credential management
+│   ├── list-integrations.sh       # Discovery script
+│   ├── test-integrations.sh       # Testing script
+│   └── test-jwt-auth.sh           # Auth verification
+├── docs/                           # Documentation
+│   ├── Implementation-Guide.md    # Complete guide
+│   ├── Deployment-Checklist.md    # Deployment checklist
+│   └── Setup-Summary.md           # Quick reference
+├── .gitlab-ci.yml                  # CI/CD pipeline
+├── Makefile                        # Common operations
+└── README.md                       # This file
+```
+
+---
+
+## 🔐 Security
+
+### JWT Authentication
+
+This solution uses **JWT User Assertion** for authentication:
+
+1. Generate JWT token using your private key
+2. Exchange JWT for OAuth access token from IDCS
+3. Use access token to call OIC REST APIs
+
+**Requirements:**
+- Certificate alias must match JWT `kid` field
+- IDCS application must be type **Trusted** (not Confidential)
+- Certificate must be uploaded to both OAuth config and Trusted Partners
+- Username must have **ServiceInvoker** role in IDCS
+
+### Credentials Management
+
+**Never commit credentials to Git!**
+
+- Store in environment variables
+- Or use OCI Vault (see Advanced Topics in Implementation Guide)
+- Mark all credentials as "Protected" and "Masked" in GitLab CI/CD
+
+---
+
+## 🔧 Configuration
+
+### terraform.tfvars Example
+
+```hcl
+environment = "dev"
+
+oic_instances = {
+  dev  = { url = "https://dev-oic...", ... }
+  test = { url = "https://test-oic...", ... }
+  prod = { url = "https://prod-oic...", ... }
+}
+
+integrations_to_migrate = [
+  {
+    id      = "CUSTOMER_API|01.00.0000"
+    code    = "CUSTOMER_API"
+    version = "01.00.0000"
+    
+    connections = {
+      rest_conn = {
+        id = "CUSTOMER_REST"
+        
+        test_properties = {
+          "url" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "connectionUrl"
+            property_type  = "URL"
+            property_value = "https://test-api.example.com"
+          }
+        }
+        
+        prod_properties = {
+          "url" = {
+            property_group = "CONNECTION_PROPS"
+            property_name  = "connectionUrl"
+            property_type  = "URL"
+            property_value = "https://api.example.com"
+          }
+        }
+      }
+    }
+  }
+]
+```
+
+---
+
+## 🧪 Testing
+
+### Automated Testing
+
+```bash
+# Full test suite
+make test ENV=test
+
+# Connection tests only
+make test-connections ENV=test
+
+# Quick smoke test
+make smoke-test ENV=prod
+```
+
+### Test Reports
+
+All tests generate HTML reports: `test_report_<env>.html`
+
+---
+
+## 🚀 CI/CD Pipeline
+
+Included GitLab CI/CD pipeline provides:
+
+- **Automatic validation** on all branches
+- **Auto-export from DEV** on main branch
+- **Auto-import to TEST** after export
+- **Automated testing** after imports
+- **Manual approval** for PROD deployments
+- **Slack notifications** (optional)
+
+### Setup
+
+1. Copy `.gitlab-ci.yml` to your repository
+2. Configure CI/CD variables in GitLab:
+   - `OAUTH_CLIENT_ID_*`
+   - `OAUTH_CLIENT_SECRET_*`
+   - `OAUTH_USERNAME_*`
+   - `OAUTH_PRIVATE_KEY_*`
+   - `SLACK_WEBHOOK_URL` (optional)
 
 ---
 
@@ -384,44 +367,51 @@ export OAUTH_PRIVATE_KEY_DEV="~/.oic-certs/dev/private-key.pem"
 
 ### Authentication Issues
 
-```bash
-# Test JWT authentication
-./scripts/test-jwt-auth.sh dev
+**"invalid_client" error:**
+- Verify application is Active in IDCS
+- Check Client type = Trusted (NOT Confidential)
+- Verify certificate uploaded to OAuth config
+- Verify certificate added to Trusted Partner Certificates
+- Check credentials have no extra spaces: `echo "$CLIENT_ID" | od -c`
 
-# Should show:
-# ✓ All Tests Passed!
-```
-
-**Common issues:**
-- Certificate not uploaded to IDCS
-- App not assigned to OIC instance
-- Wrong client ID or secret
-- Private key not readable
+**JWT generation fails:**
+- Check private key: `openssl rsa -in private-key.pem -check`
+- Verify permissions: `ls -la private-key.pem` (should be 600)
+- Verify key alias matches certificate alias
 
 ### Export/Import Issues
 
 ```bash
-# Enable debug logging
+# Enable debug mode
 export TF_LOG=DEBUG
-
-# Run plan to see details
 make plan ENV=test
 
-# Check logs
-cat terraform-debug.log
+# Check Object Storage
+oci os object list --bucket-name oic-migration-artifacts
+
+# Verify integration exists
+./scripts/list-integrations.sh dev
 ```
 
 ### Connection Issues
 
 ```bash
-# Test connections manually
+# Test connections
 make test-connections ENV=test
 
-# Check OIC console
-# Connections → [Your Connection] → Test
+# Check logs in OIC console
+# Verify network connectivity
+# Verify credentials for target environment
 ```
 
-See [Implementation Guide](./docs/Implementation-Guide.md#troubleshooting) for detailed troubleshooting.
+---
+
+## 📚 Additional Resources
+
+- **OIC Documentation:** https://docs.oracle.com/en/cloud/paas/application-integration/
+- **OIC REST API:** https://docs.oracle.com/en/cloud/paas/application-integration/rest-api/
+- **Oracle JWT Auth:** https://docs.oracle.com/en/cloud/paas/application-integration/rest-adapter/authenticate-requests-invoking-oic-integration-flows.html
+- **Terraform OCI Provider:** https://registry.terraform.io/providers/oracle/oci/latest/docs
 
 ---
 
@@ -429,49 +419,59 @@ See [Implementation Guide](./docs/Implementation-Guide.md#troubleshooting) for d
 
 1. Create a feature branch
 2. Make your changes
-3. Test thoroughly
+3. Run `make validate` and `make format`
 4. Submit a pull request
-5. Ensure CI/CD passes
-
-### Development Setup
-
-```bash
-# Install development dependencies
-make dev-setup
-
-# Run development tests
-make dev-test
-
-# Clean development environment
-make dev-clean
-```
 
 ---
 
-## 📜 License
+## 📝 License
 
 [Your License Here]
 
 ---
 
-## 🙏 Support
+## 👥 Support
 
-- 📖 Check the [documentation](./docs/)
-- 🐛 Open an [issue](../../issues)
-- 💬 Contact your OIC administrator
-- 📚 Review [OIC documentation](https://docs.oracle.com/en/cloud/paas/application-integration/)
-
----
-
-## 🔗 Resources
-
-- [Oracle Integration Cloud Documentation](https://docs.oracle.com/en/cloud/paas/application-integration/)
-- [OIC REST API Reference](https://docs.oracle.com/en/cloud/paas/application-integration/rest-api/)
-- [Terraform OCI Provider](https://registry.terraform.io/providers/oracle/oci/latest/docs)
-- [JWT User Assertion Guide](https://docs.oracle.com/en/cloud/paas/application-integration/rest-adapter/authenticate-requests-invoking-oic-integration-flows.html)
+For issues and questions:
+1. Check the [Implementation Guide](./docs/Implementation-Guide.md)
+2. Review [Troubleshooting](#-troubleshooting) section
+3. Check OIC documentation
+4. Contact your team lead
 
 ---
 
-**Made with ❤️ for OIC automation**  
 **Version:** 1.0 (JWT-Only)  
-**Authentication:** JWT User Assertion with Certificates
+**Last Updated:** 2024
+
+---
+
+## ⚡ Quick Commands Reference
+
+```bash
+# Setup
+make init                         # Initialize Terraform
+./scripts/test-jwt-auth.sh dev   # Test authentication
+
+# Discovery
+make list-integrations ENV=dev   # Discover integrations
+
+# Export/Import
+make export-dev                   # Export from DEV
+make import-test                  # Import to TEST
+make import-prod                  # Import to PROD
+
+# Testing
+make test ENV=test                # Run tests
+
+# Full workflow
+make promote-to-test              # DEV → TEST
+make promote-to-prod              # TEST → PROD
+
+# Utilities
+make help                         # Show all commands
+make doctor                       # Check dependencies
+```
+
+---
+
+**Ready to get started?** See the [Implementation Guide](./docs/Implementation-Guide.md) for detailed setup instructions.
