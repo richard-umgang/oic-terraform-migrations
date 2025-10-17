@@ -124,6 +124,9 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 ## Authentication Setup
 
+**Reference:** This section follows Oracle's official documentation at:
+https://docs.oracle.com/en/cloud/paas/application-integration/rest-adapter/authenticate-requests-invoking-oic-integration-flows.html#GUID-6D75DD1E-1811-4E73-BB0D-10DE56CB83EE
+
 ### JWT User Assertion Flow
 
 1. **Generate JWT token** using your private key
@@ -133,7 +136,7 @@ Complete guide for implementing automated OIC migrations with JWT authentication
 
 ### Step-by-Step Setup
 
-#### 1. Generate Certificates (Oracle's Official Method)
+#### Step 1: Generate Certificates (Oracle's Official Method)
 
 ```bash
 # Create certificate directories for each environment
@@ -144,7 +147,7 @@ mkdir -p ~/.oic-certs/prod
 # For each environment (replace 'dev' with 'test', 'prod'):
 ENV=dev
 
-# Step 1: Generate the self-signed key pair
+# Generate the self-signed key pair
 keytool -genkey -keyalg RSA \
   -alias oic-jwt-$ENV \
   -keystore ~/.oic-certs/$ENV/keystore.jks \
@@ -164,7 +167,7 @@ keytool -genkey -keyalg RSA \
 # What is the two-letter country code? [US, GB, etc]
 # Is CN=..., OU=..., correct? [yes]
 
-# Step 2: Export the public key certificate
+# Export the public key certificate
 keytool -exportcert \
   -alias oic-jwt-$ENV \
   -file ~/.oic-certs/$ENV/certificate.cer \
@@ -173,7 +176,7 @@ keytool -exportcert \
 
 # Success message: Certificate stored in file <certificate.cer>
 
-# Step 3: Convert the keystore to PKCS12 format
+# Convert the keystore to PKCS12 format
 keytool -importkeystore \
   -srckeystore ~/.oic-certs/$ENV/keystore.jks \
   -srcstorepass changeit \
@@ -187,7 +190,7 @@ keytool -importkeystore \
 
 # Success message: Importing keystore ... to certificate.p12...
 
-# Step 4: Export the private key from PKCS12 keystore
+# Export the private key from PKCS12 keystore
 openssl pkcs12 \
   -in ~/.oic-certs/$ENV/certificate.p12 \
   -nodes \
@@ -197,14 +200,14 @@ openssl pkcs12 \
 
 # Success message: MAC verified OK
 
-# Step 5: Set secure permissions
+# Set secure permissions
 chmod 600 ~/.oic-certs/$ENV/*
 ```
 
 **Files Created:**
 - `keystore.jks` - Java keystore (original, keep secure)
 - `certificate.cer` - Public certificate for IDCS (upload this)
-- `certificate.p12` - PKCS12 bundle (upload this if needed)
+- `certificate.p12` - PKCS12 bundle
 - `private-key.pem` - Private key for JWT signing (**keep secure!**)
 
 **Important Notes:**
@@ -213,52 +216,65 @@ chmod 600 ~/.oic-certs/$ENV/*
 - The `private-key.pem` is used by the JWT generator script
 - Keep keystores and private keys secure - never commit to Git
 
-#### 2. Create IDCS Confidential Application
+#### Step 2: Create IDCS Confidential Application
 
 For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 
-**Step 1: Navigate and Create**
+**Navigate and Create:**
 1. OCI Console → Identity & Security → Domains → [Your Domain]
 2. Click **Integrated applications**
 3. Click **Add application**
 4. Select **Confidential Application**
 5. Click **Launch workflow**
 
-**Step 2: Add Application Details**
+**Add Application Details:**
 - Name: `oic-terraform-dev` (or `test`, `prod`)
 - Description: "Terraform automation for OIC JWT"
 - Click **Submit**
 
-**Step 3: Configure OAuth**
+**Configure OAuth:**
 
-- Click **OAuth configuration** tab, then **Edit OAuth configuration** subtab
-- In **Client configuration** panel:
-  - ✅ **Configure this application as a client now**
-- **Allowed grant types**: 
-  - ✅ **JWT assertion**
-  - ✅ **Refresh token**
-- Leave **Redirect URL**, **Post-logout redirect URL**, and **Logout URL** blank
-- **Client type**: 
-  - ⚠️ Select **Trusted** (NOT "Confidential")
-- **Certificate section**:
-  - Click **Import certificate**
-  - Upload `~/.oic-certs/dev/certificate.cer`
-- **Token issuance policy**:
-  - Select **Confidential** in **Authorized resources**
-  - Toggle **Add Resources** ON
-  - Click **Add scope**
-  - Find your OIC instance and select BOTH scopes
-  - Click **Add**
-- Click **Submit**
+1. Click **OAuth configuration** tab
+2. Click **Edit OAuth configuration** subtab
+3. In **Client configuration** panel:
+   - ✅ Check **Configure this application as a client now**
 
-**Step 4: Activate**
-- Click **Activate**, then **Activate application**
+4. **Allowed grant types:**
+   - ✅ Check **JWT assertion**
+   - ✅ Check **Refresh token**
 
-**Step 5: Get Credentials**
-- Copy **Client ID** from General Information
-- Copy **Client Secret** (click Show)
+5. Leave **Redirect URL**, **Post-logout redirect URL**, and **Logout URL** blank
 
-**Step 6: Add Certificate as Trusted Partner**
+6. **In Client type section:**
+   - ⚠️ Select **Trusted** (NOT "Confidential")
+   - This is critical for self-signed certificate user assertions
+
+7. **Certificate section:**
+   - Click **Import certificate**
+   - Upload `~/.oic-certs/dev/certificate.cer`
+
+8. **Token issuance policy:**
+   - In **Authorized resources**, select **Confidential**
+   - Toggle **Add Resources** to ON
+   - Click **Add scope**
+   - Find your OIC instance
+   - Select BOTH scopes:
+     - `:443urn:opc:resource:consumer::all`
+     - `ic/api/`
+   - Click **Add**
+
+9. Click **Submit**
+
+**Activate Application:**
+- Click **Activate** button
+- Click **Activate application** in the confirmation dialog
+
+**Get Credentials:**
+- Go to **General Information** section
+- Copy **Client ID**
+- Click **Show** next to Client Secret and copy it
+
+#### Step 3: Add Certificate as Trusted Partner
 
 ⚠️ Oracle documentation requires this additional step:
 
@@ -268,9 +284,11 @@ For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 4. Upload the same `certificate.cer` file again
 5. Click **Import**
 
-**Step 7: Assign Application to OIC Instance**
+This is separate from the OAuth configuration step and is required for JWT validation.
 
-1. In the domain, click **Oracle Cloud Services** in the menu
+#### Step 4: Assign Application to OIC Instance
+
+1. In the domain, click **Oracle Cloud Services** in the left menu
 2. Find and click your OIC instance application
 3. Click **Application roles** tab
 4. Expand **ServiceInvoker** role
@@ -278,28 +296,13 @@ For each environment (DEV, TEST, PROD), follow Oracle's documented steps:
 6. Click **Assign applications** (or Show applications)
 7. Find your confidential application (`oic-terraform-dev`)
 8. Select it and click **Assign**
-   
-9. **Skip remaining steps**, click **Finish**
 
-10. **Get Credentials:**
-   - Copy **Client ID** from General Information
-   - Copy **Client Secret** (click Show to reveal)
-
-11. **Assign to OIC:**
-   - Go to Identity & Security → Domains → Oracle Cloud Services
-   - Find your OIC instance
-   - Click on it → **Application roles**
-   - Find **ServiceAdministrator** role
-   - Click **Manage**
-   - Click **Show applications**
-   - Select your app → **Assign**
-
-#### 3. Verify Setup
+#### Step 5: Verify Setup
 
 Test the complete JWT authentication flow:
 
 ```bash
-# Step 1: Set environment variables
+# Set environment variables
 export IDCS_URL="https://idcs-xxxxx.identity.oraclecloud.com"
 export CLIENT_ID="your-client-id"
 export CLIENT_SECRET="your-client-secret"
@@ -307,7 +310,7 @@ export USERNAME="your.email@example.com"  # IDCS user with ServiceInvoker role
 export PRIVATE_KEY_PATH="~/.oic-certs/dev/private-key.pem"
 export KEY_ALIAS="oic-jwt-dev"  # Must match your keytool alias
 
-# Step 2: Generate JWT token (with key alias)
+# Generate JWT token (with key alias and jti)
 JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH" "$KEY_ALIAS")
 
 echo "JWT Token generated: ${JWT_TOKEN:0:50}..."
@@ -331,8 +334,8 @@ echo "JWT Token generated: ${JWT_TOKEN:0:50}..."
 **Continue with token exchange:**
 
 ```bash
-# Step 3: Exchange JWT for Access Token (Oracle's documented method)
-BASIC_AUTH=$(echo -n "${CLIENT_ID}:${CLIENT_SECRET}" | base64)
+# Exchange JWT for Access Token (Oracle's documented method)
+BASIC_AUTH=$(echo -n "${CLIENT_ID}:${CLIENT_SECRET}" | base64 | tr -d '\n ')
 
 ACCESS_TOKEN=$(curl -s \
   -H "Authorization: Basic $BASIC_AUTH" \
@@ -354,7 +357,7 @@ else
     -d "grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${JWT_TOKEN}&scope=urn:opc:resource:consumer::all"
 fi
 
-# Step 4: Test OIC API access
+# Test OIC API access
 OIC_URL="https://your-oic.integration.ocp.oraclecloud.com"
 
 curl -s \
@@ -391,10 +394,19 @@ oic_instances = {
     instance_name = "DEV_INSTANCE"
     idcs_url      = "https://idcs-xxx.identity.oraclecloud.com"
   }
-  # ... test, prod
+  test = {
+    url           = "https://test-oic.integration.region.ocp.oraclecloud.com"
+    instance_name = "TEST_INSTANCE"
+    idcs_url      = "https://idcs-xxx.identity.oraclecloud.com"
+  }
+  prod = {
+    url           = "https://prod-oic.integration.region.ocp.oraclecloud.com"
+    instance_name = "PROD_INSTANCE"
+    idcs_url      = "https://idcs-xxx.identity.oraclecloud.com"
+  }
 }
 
-# JWT Credentials
+# JWT Credentials (loaded from environment variables via Makefile)
 oauth_credentials = {
   dev = {
     client_id        = ""  # From OAUTH_CLIENT_ID_DEV env var
@@ -402,7 +414,18 @@ oauth_credentials = {
     username         = ""  # From OAUTH_USERNAME_DEV env var
     private_key_path = ""  # From OAUTH_PRIVATE_KEY_DEV env var
   }
-  # ... test, prod
+  test = {
+    client_id        = ""
+    client_secret    = ""
+    username         = ""
+    private_key_path = ""
+  }
+  prod = {
+    client_id        = ""
+    client_secret    = ""
+    username         = ""
+    private_key_path = ""
+  }
 }
 
 # Object Storage
@@ -612,6 +635,107 @@ terraform apply -var="environment=prod" # with previous config
 
 ### Authentication Issues
 
+#### "invalid_client" Error
+
+If you get `"error":"invalid_client","error_description":"Client authentication failed"`, follow these steps:
+
+**Step 1: Verify Client Credentials**
+```bash
+# Test basic auth encoding
+CLIENT_ID="your-client-id"
+CLIENT_SECRET="your-client-secret"
+
+# Trim any whitespace (common copy-paste issue)
+CLIENT_ID=$(echo "$CLIENT_ID" | xargs)
+CLIENT_SECRET=$(echo "$CLIENT_SECRET" | xargs)
+
+# Check what you're sending
+BASIC_AUTH=$(echo -n "${CLIENT_ID}:${CLIENT_SECRET}" | base64 | tr -d '\n ')
+echo "Basic Auth Header: $BASIC_AUTH"
+
+# Verify no spaces in the base64 string
+if [[ "$BASIC_AUTH" =~ [[:space:]] ]]; then
+    echo "ERROR: Basic Auth contains spaces!"
+else
+    echo "✓ Basic Auth looks good"
+fi
+
+# Decode to verify
+echo "$BASIC_AUTH" | base64 -d
+# Should show: client-id:client-secret
+```
+
+**Step 2: Verify Application Configuration in IDCS**
+
+1. Go to your confidential application in IDCS
+2. Check **General Information**:
+   - Is the application **Active**? (green checkmark)
+   - Copy the Client ID - does it match exactly?
+   - Click **Show** on Client Secret - does it match exactly?
+   - Watch for extra spaces or hidden characters
+
+3. Check **OAuth Configuration**:
+   - Client type = **Trusted** ✓
+   - Allowed grant types include **JWT assertion** ✓
+   - Certificate is uploaded under **Certificate** section ✓
+
+**Step 3: Verify Certificate Upload**
+
+In your confidential application:
+1. Go to **OAuth configuration** → **Edit OAuth configuration**
+2. Scroll to **Certificate** section
+3. Is your certificate listed?
+4. Does the certificate alias match your `kid` in the JWT?
+
+**Step 4: Verify Trusted Partner Certificate**
+
+1. Go to domain → **Security** → **Trusted partner certificates**
+2. Is your certificate listed here?
+3. If not, upload it again
+
+**Step 5: Test JWT Generation**
+
+```bash
+# Generate JWT and decode it to verify
+JWT_TOKEN=$(./scripts/generate-jwt.sh "$USERNAME" "$CLIENT_ID" "$PRIVATE_KEY_PATH" "$KEY_ALIAS")
+
+# Decode JWT header (first part before first dot)
+echo "$JWT_TOKEN" | cut -d. -f1 | base64 -d 2>/dev/null | jq '.'
+
+# Should show:
+# {
+#   "alg": "RS256",
+#   "typ": "JWT",
+#   "kid": "oic-jwt-dev"  // Must match your certificate alias
+# }
+
+# Decode JWT payload (second part)
+echo "$JWT_TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq '.'
+
+# Should show:
+# {
+#   "sub": "your-username",
+#   "jti": "uuid",
+#   "iat": 1234567890,
+#   "exp": 1234568190,
+#   "iss": "your-client-id",  // Must match CLIENT_ID
+#   "aud": "https://identity.oraclecloud.com/"
+# }
+```
+
+**Common Issues Checklist**
+
+- [ ] Client ID has no spaces or hidden characters
+- [ ] Client secret has no spaces or hidden characters
+- [ ] Application is **Active** (not deactivated)
+- [ ] Application client type is **Trusted** (not Confidential)
+- [ ] Certificate uploaded to OAuth configuration
+- [ ] Certificate added to Trusted Partner Certificates
+- [ ] Certificate `kid` matches JWT header `kid`
+- [ ] JWT `iss` field matches Client ID exactly
+- [ ] IDCS URL is correct (check domain URL in IDCS console)
+- [ ] No firewall blocking IDCS URL
+
 #### JWT Token Generation Fails
 
 **Symptom:** `generate-jwt.sh` returns empty or errors
@@ -637,15 +761,15 @@ ls -la ~/.oic-certs/dev/private-key.pem
 **Solutions:**
 1. **Verify certificate uploaded:**
    - Check IDCS app configuration
-   - Re-upload `.p12` if needed
+   - Re-upload `.cer` if needed
 
 2. **Check app assignment:**
-   - Verify app assigned to OIC with ServiceAdministrator role
+   - Verify app assigned to OIC with ServiceInvoker role
    - Check in IDCS → Oracle Cloud Services → [OIC] → Application roles
 
 3. **Verify scopes:**
-   - App should have scope: `{OIC_URL}:443urn:opc:resource:consumer::all`
-   - Check in IDCS app → Configuration → Client configuration
+   - App should have both scopes selected
+   - Check in IDCS app → OAuth configuration
 
 4. **Test manually:**
    ```bash
@@ -768,7 +892,7 @@ scripts/deploy-to-region.sh
 ## Support & Resources
 
 ### Documentation
-- [Quick Start Guide](./Quick-Start-Guide.md)
+- [Implementation Guide](./Implementation-Guide.md) (this document)
 - [Deployment Checklist](./Deployment-Checklist.md)
 - [OIC REST API Reference](https://docs.oracle.com/en/cloud/paas/application-integration/rest-api/)
 
